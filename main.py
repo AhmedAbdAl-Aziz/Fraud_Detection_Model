@@ -118,6 +118,10 @@ class TransactionInput(BaseModel):
     average_amount: Optional[float] = None  # Hint from company profile API
     industry: Optional[str] = None          # Sender's industry
     sender_age_days: Optional[int] = None   # How old is the sending company
+    hour_of_day: Optional[int] = None       # Hour of transaction (0-23)
+    is_business_hours: Optional[int] = None # 1 if within working hours, 0 otherwise
+    is_weekend: Optional[int] = None        # 1 if weekend, 0 otherwise
+    is_night: Optional[int] = None          # 1 if night (23-5), 0 otherwise
 
 
 class TransactionDecision(BaseModel):
@@ -166,11 +170,11 @@ def predict_with_lgbm(tx: TransactionInput) -> dict:
 
     amount_to_avg_ratio = float(np.clip(tx.amount / avg_amount, 0, 50)) if avg_amount > 0 else 1.0
 
-    # Approximate hour — unknown at inference time; use 12 (noon) as neutral
-    hour           = 12
-    is_weekend     = 0
-    is_biz_hours   = 1
-    is_night       = 0
+    # Use provided values from Laravel, or fallback to neutral
+    hour           = tx.hour_of_day if tx.hour_of_day is not None else 12
+    is_weekend     = tx.is_weekend if tx.is_weekend is not None else 0
+    is_biz_hours   = tx.is_business_hours if tx.is_business_hours is not None else 1
+    is_night       = tx.is_night if tx.is_night is not None else 0
 
     sender_age   = float(tx.sender_age_days or 365)
     industry_val = tx.industry or "Unknown"
